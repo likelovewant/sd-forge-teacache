@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ## Sd-Forge-TeaCache: Speed up Your Diffusion Models
 
 **Introduction**
@@ -56,3 +57,7 @@ For additional information and other integrations, explore:
 
 * [ComfyUI-TeaCache](https://github.com/welltop-cn/ComfyUI-TeaCache)
 
+=======
+# sd-forge-teacache
+teacache adaption on forge webui
+>>>>>>> 45804d1411ad9da74bda8e26d6c7a6d2068c579c
