@@ -86,6 +86,8 @@ class TeaCache(scripts.Script):
             setattr(IntegratedFluxTransformer2DModel, "cnt", 0)
         if hasattr(IntegratedFluxTransformer2DModel, "accumulated_rel_l1_distance"):
             setattr(IntegratedFluxTransformer2DModel, "accumulated_rel_l1_distance", 0)
+        if hasattr(IntegratedFluxTransformer2DModel, "_teacache_enabled_printed"):
+            delattr(IntegratedFluxTransformer2DModel, "_teacache_enabled_printed")
         # Free GPU memory
         torch.cuda.empty_cache()
         print("Residual cache cleared and GPU memory freed.")
@@ -151,6 +153,9 @@ class TeaCache(scripts.Script):
             # Restore the original forward method
             if hasattr(IntegratedFluxTransformer2DModel, "original_forward"):
                 IntegratedFluxTransformer2DModel.forward = IntegratedFluxTransformer2DModel.original_forward
+                # Remove the patched forward method to avoid recursion
+                if hasattr(IntegratedFluxTransformer2DModel, "patched_forward"):
+                    delattr(IntegratedFluxTransformer2DModel, "patched_forward")
 
 
 def patched_inner_forward(self, img, img_ids, txt, txt_ids, timesteps, y, guidance=None):
