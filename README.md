@@ -48,9 +48,8 @@ Several AI assistants has assisting with code generation and refinement for this
 
 **Credits and Resources**
 
-This adaptation leverages [TeaCache4FLUX](https://github.com/ali-vilab/TeaCache/tree/main/TeaCache4FLUX) and
-builds upon the foundational work of the original TeaCache repository:
-[https://github.com/ali-vilab/TeaCache](https://github.com/ali-vilab/TeaCache).
+This adaptation leverages [TeaCache4FLUX](https://github.com/ali-vilab/TeaCache/tree/main/TeaCache4FLUX)
+From ali-vilab TeaCache repository:[TeaCache](https://github.com/ali-vilab/TeaCache).
 
 For additional information and other integrations, explore:
 
