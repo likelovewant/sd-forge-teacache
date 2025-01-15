@@ -6,13 +6,11 @@ from modules import scripts
 from modules.ui_components import InputAccordion
 from backend.nn.flux import IntegratedFluxTransformer2DModel, timestep_embedding
 
-
 class TeaCache(scripts.Script):
     def __init__(self):
         super().__init__()
         self.enable_teacache = False
         self.rel_l1_thresh = 0.4
-        self.steps = 25
         self.last_input_shape = None  # Record the last input dimensions
 
     def title(self):
@@ -32,28 +30,18 @@ class TeaCache(scripts.Script):
                     value=self.rel_l1_thresh,
                     tooltip="Threshold for caching intermediate results. Lower values cache more aggressively."
                 )
-                steps_slider = gr.Slider(
-                    label="Steps",
-                    minimum=1,
-                    maximum=100,
-                    step=1,
-                    value=self.steps,
-                    tooltip="Number of steps to cache intermediate results."
-                )
-
 
         self.paste_field_names = []
         self.infotext_fields = [
             (enable, "TeaCache Enabled"),
             (rel_l1_thresh_slider, "TeaCache Relative L1 Threshold"),
-            (steps_slider, "TeaCache Steps"),
         ]
 
         for comp, name in self.infotext_fields:
             comp.do_not_save_to_config = True
             self.paste_field_names.append(name)
 
-        return [enable, rel_l1_thresh_slider, steps_slider]
+        return [enable, rel_l1_thresh_slider]
 
     def clear_residual_cache(self):
         """Clear residual cache and free GPU memory."""
@@ -71,7 +59,7 @@ class TeaCache(scripts.Script):
         torch.cuda.empty_cache()
         print("Residual cache cleared and GPU memory freed.")
 
-    def process(self, p, enable, rel_l1_thresh_slider, steps_slider):
+    def process(self, p, enable, rel_l1_thresh_slider):
         # Get the current input dimensions
         current_input_shape = (p.width, p.height)
         if self.last_input_shape is not None and current_input_shape != self.last_input_shape:
@@ -83,21 +71,18 @@ class TeaCache(scripts.Script):
         if enable:
             print("TeaCache enabled:", enable)
             print("Relative L1 Threshold:", rel_l1_thresh_slider)
-            print("Steps:", steps_slider)
 
         # If TeaCache is enabled, add parameters to generation parameters
         if enable:
             p.extra_generation_params.update({
                 "enable_teacache": enable,
                 "rel_l1_thresh": rel_l1_thresh_slider,
-                "steps": steps_slider,
             })
 
             # Dynamically modify class attributes of IntegratedFluxTransformer2DModel
             setattr(IntegratedFluxTransformer2DModel, "enable_teacache", enable)
             setattr(IntegratedFluxTransformer2DModel, "cnt", 0)
             setattr(IntegratedFluxTransformer2DModel, "rel_l1_thresh", rel_l1_thresh_slider)
-            setattr(IntegratedFluxTransformer2DModel, "steps", steps_slider)
             setattr(IntegratedFluxTransformer2DModel, "accumulated_rel_l1_distance", 0)
             setattr(IntegratedFluxTransformer2DModel, "previous_modulated_input", None)
             setattr(IntegratedFluxTransformer2DModel, "previous_residual", None)
@@ -127,14 +112,10 @@ class TeaCache(scripts.Script):
             setattr(IntegratedFluxTransformer2DModel, "enable_teacache", False)
             setattr(IntegratedFluxTransformer2DModel, "cnt", 0)
             setattr(IntegratedFluxTransformer2DModel, "rel_l1_thresh", 0.4)
-            setattr(IntegratedFluxTransformer2DModel, "steps", 25)
             setattr(IntegratedFluxTransformer2DModel, "accumulated_rel_l1_distance", 0)
             setattr(IntegratedFluxTransformer2DModel, "previous_modulated_input", None)
             setattr(IntegratedFluxTransformer2DModel, "previous_residual", None)
             print("TeaCache fully disabled and cache cleared.")
-
-
-
 
 def patched_inner_forward(self, img, img_ids, txt, txt_ids, timesteps, y, guidance=None):
     # Print "TeaCache is enabled!" only once per generation
@@ -148,7 +129,6 @@ def patched_inner_forward(self, img, img_ids, txt, txt_ids, timesteps, y, guidan
 
     # Get parameters from UI
     rel_l1_thresh = getattr(self, "rel_l1_thresh", 0.4)
-    steps = getattr(self, "steps", 25)
 
     # TeaCache logic
     if img.ndim != 3 or txt.ndim != 3:
@@ -184,7 +164,7 @@ def patched_inner_forward(self, img, img_ids, txt, txt_ids, timesteps, y, guidan
             self.previous_residual = None
             print("  Cleared cache due to shape mismatch.")
 
-    if self.cnt == 0 or self.cnt == steps - 1:
+    if self.cnt == 0:
         should_calc = True
         self.accumulated_rel_l1_distance = 0
     else:
@@ -204,8 +184,6 @@ def patched_inner_forward(self, img, img_ids, txt, txt_ids, timesteps, y, guidan
 
     self.previous_modulated_input = modulated_inp
     self.cnt += 1
-    if self.cnt == steps:
-        self.cnt = 0
 
     if not should_calc:
         if hasattr(self, "previous_residual") and self.previous_residual is not None:
@@ -224,13 +202,11 @@ def patched_inner_forward(self, img, img_ids, txt, txt_ids, timesteps, y, guidan
     img = self.final_layer(img, vec)
     return img
 
-
 def patched_forward(self, x, timestep, context, y, guidance=None, **kwargs):
     # Set TeaCache parameters if provided and enabled
     if hasattr(self, "enable_teacache") and kwargs.get("enable_teacache", False):
         self.enable_teacache = kwargs.get("enable_teacache", self.enable_teacache)
         self.rel_l1_thresh = kwargs.get("rel_l1_thresh", self.rel_l1_thresh)
-        self.steps = kwargs.get("steps", self.steps)
 
     # Call the original forward method
     return self.original_forward(x, timestep, context, y, guidance, **kwargs)
